@@ -1,0 +1,19 @@
+# Maven
+ordering-system/target/
+!ordering-system/.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Application
+ordering-system/application-local.yml
