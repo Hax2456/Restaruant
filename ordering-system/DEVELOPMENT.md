@@ -521,3 +521,182 @@ restaurant_db
 - 价格字段统一使用 BigDecimal 类型，避免精度问题
 - 订单明细表采用冗余字段设计，保留历史价格和名称信息
 - 项目GitHub地址：https://github.com/Hax2456/Restaruant
+
+---
+
+## 2026-02-15 Dish菜品管理模块完成
+
+### 今日完成
+1. ✅ **Repository层扩展**
+   - 扩展 `DishRepository`
+     - existsByName() - 检查菜品名称是否存在
+     - existsByNameAndIdNot() - 更新时检查名称重复（排除自己）
+     - findByCategoryId() - 根据分类ID查询菜品
+     - findByStatus() - 根据状态查询菜品
+     - findByCategoryIdAndStatus() - 根据分类ID和状态查询菜品
+   - 扩展 `OrderItemRepository`
+     - countByDishId() - 统计指定菜品的订单项数量
+
+2. ✅ **Service业务层创建**
+   - 创建 `DishService.java`（菜品业务服务类）
+   - 实现8个业务方法：
+     - `create()` - 创建菜品
+       - 验证菜品名称、分类、价格
+       - 检查名称重复
+       - 验证分类存在
+       - 价格必须大于0
+       - 默认状态为在售
+     - `update()` - 更新菜品
+       - 验证菜品存在
+       - 检查新名称是否重复（排除自己）
+       - 验证分类和价格
+     - `delete()` - 删除菜品
+       - 验证菜品存在
+       - 检查是否有订单记录（有订单不能删除）
+     - `getById()` - 查询单个菜品
+     - `listByCategoryId()` - 根据分类ID查询在售菜品
+     - `listByStatus()` - 查询所有在售菜品
+     - `listAll()` - 查询所有菜品（包括停售）
+     - `updateStatus()` - 启用/停售菜品
+
+3. ✅ **DTO数据传输对象创建**
+   - 创建 `DishRequest.java`（菜品请求DTO）
+     - 字段：name, categoryId, price, images, description
+     - 用于接收前端创建和更新菜品的参数
+
+4. ✅ **Controller控制器层创建**
+   - 创建 `DishController.java`（菜品管理控制器）
+   - 实现7个RESTful API接口：
+     - `GET /api/admin/dishes` - 查询所有菜品
+     - `GET /api/admin/dishes/{id}` - 根据ID查询菜品
+     - `GET /api/admin/dishes/category/{categoryId}` - 根据分类ID查询菜品（顾客端重要接口）
+     - `POST /api/admin/dishes` - 创建菜品
+     - `PUT /api/admin/dishes/{id}` - 更新菜品
+     - `DELETE /api/admin/dishes/{id}` - 删除菜品
+     - `PATCH /api/admin/dishes/{id}/status` - 启用/停售菜品
+
+5. ✅ **完整API测试**
+   - 使用 Postman 测试所有7个接口
+   - 测试了正常流程和异常流程
+   - 验证了全局异常处理器正常工作
+   - 确认所有接口返回标准的Result格式
+
+### 遇到的问题及解决
+
+1. **问题**: DishService.delete() 方法中传入了null
+   - 错误：`dishRepository.delete(null)`
+   - 错误信息：`Entity must not be null`
+   - 原因：复制代码时写错了参数
+   - 解决：修改为 `dishRepository.deleteById(id)`
+
+### Dish模块设计亮点
+
+1. **业务逻辑完善**
+   - 创建菜品时验证分类是否存在
+   - 删除菜品前检查是否有订单记录
+   - 价格验证（必须大于0）
+   - 名称重复检查
+
+2. **顾客端优化**
+   - `listByCategoryId()` 只返回在售菜品
+   - 使用 `findByCategoryIdAndStatus(categoryId, 1)` 过滤停售商品
+   - 提升用户体验
+
+3. **数据完整性保护**
+   - 删除菜品前检查订单关联
+   - 防止删除已有订单记录的菜品
+   - 保护历史订单数据
+
+4. **BigDecimal精度处理**
+   - 价格使用BigDecimal类型
+   - 避免浮点数精度问题
+   - 确保金额计算准确
+
+### 项目进度更新
+
+#### 已完成模块（90%）
+- ✅ **Entity层**（5个实体类）
+- ✅ **Repository层**（5个接口 + 扩展方法）
+- ✅ **Common层**（3个工具类）
+- ✅ **Exception层**（2个类：BusinessException + GlobalExceptionHandler）
+- ✅ **Service层**（2个服务类：CategoryService + DishService）← **今天完成DishService**
+- ✅ **DTO层**（3个DTO类：CategoryRequest + StatusRequest + DishRequest）← **今天完成DishRequest**
+- ✅ **Controller层**（2个控制器：CategoryController + DishController）← **今天完成DishController**
+
+#### 待完成模块（10%）
+- ⏳ **OrderService 和 OrderController**（订单管理）
+- ⏳ **DiningTableService 和 DiningTableController**（餐桌管理）
+- ⏳ **配置类**（CORS跨域配置等）
+
+### 代码统计
+- **总文件数**: 25个（+4）
+- **总代码量**: ~1200行（+500行）
+- **DishService代码**: ~180行
+- **DishController代码**: ~130行
+- **后端完成度**: 约90%
+
+### API测试结果总结
+
+#### 正常功能测试（7个接口）✅
+1. ✅ GET /api/admin/dishes - 查询所有菜品（返回7条数据）
+2. ✅ POST /api/admin/dishes - 创建菜品（创建"麻辣烫"成功）
+3. ✅ GET /api/admin/dishes/{id} - 查询单个菜品（成功）
+4. ✅ GET /api/admin/dishes/category/{categoryId} - 按分类查询（返回4条数据）
+5. ✅ PUT /api/admin/dishes/{id} - 更新菜品（价格从25.00→30.00）
+6. ✅ PATCH /api/admin/dishes/{id}/status - 停售菜品（status从1→0）
+7. ✅ DELETE /api/admin/dishes/{id} - 删除菜品（成功）
+
+#### 异常测试（2个场景）✅
+1. ✅ 删除不存在的菜品 - 返回"菜品不存在"（友好错误）
+2. ✅ 删除有订单的菜品 - 业务逻辑正常（数据库无订单数据，删除成功）
+
+### 下一步计划
+
+**立即要做**：
+1. **Git提交**
+   - 提交Dish模块代码
+   - 提交消息：`feat: 完成DishController和DishService`
+
+2. **继续开发**（可选）
+   - OrderService 和 OrderController（订单管理）
+   - 前端开发
+
+**本周计划**：
+- 开始前端开发（顾客端H5）
+- 实现菜单展示功能
+- 实现购物车功能
+
+---
+
+## 技术总结
+
+### 已掌握的技术点
+1. ✅ Spring Boot 项目创建和配置
+2. ✅ JPA/Hibernate 实体类设计和关系映射
+3. ✅ Spring Data JPA Repository 自定义查询
+4. ✅ Service层业务逻辑和事务管理
+5. ✅ Controller层RESTful API设计
+6. ✅ 全局异常处理（@RestControllerAdvice）
+7. ✅ DTO数据传输对象设计
+8. ✅ 统一响应格式封装
+9. ✅ Git版本控制和提交规范
+10. ✅ API测试（Postman）
+11. ✅ 业务逻辑验证和数据完整性保护
+12. ✅ BigDecimal精度处理
+
+### 项目亮点
+1. **完整的三层架构** - 清晰的代码组织
+2. **业务逻辑完善** - 完整的数据验证和错误处理
+3. **统一异常处理** - 友好的错误信息返回
+4. **RESTful规范** - 符合REST API设计标准
+5. **数据完整性保护** - 关联数据检查
+6. **时间戳自动管理** - @PrePersist和@PreUpdate
+7. **精度处理** - BigDecimal处理金额
+
+---
+
+**备注**:
+- Category和Dish两个核心模块已完整实现
+- 所有API接口测试通过
+- 全局异常处理器工作正常
+- 准备开始前端开发或继续后端Order模块
