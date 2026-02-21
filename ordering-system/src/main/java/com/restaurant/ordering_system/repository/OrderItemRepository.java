@@ -1,5 +1,7 @@
 package com.restaurant.ordering_system.repository;
 
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -15,4 +17,18 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long>{
      * @return 订单项数量
      */
     long countByDishId(Long dishId);
+
+    /**
+     * 根据订单ID查询订单项列表
+     * @param orderId 订单ID
+     * @return 订单项列表
+     */
+    List<OrderItem> findByOrderId(Long orderId);
+
+    /**
+     * 根据订单ID删除订单项
+     * @param orderId 订单ID
+     */
+    void deleteByOrderId(Long orderId);
+
 }

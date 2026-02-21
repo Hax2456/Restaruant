@@ -30,6 +30,8 @@ public class OrderItem {
     @Column(nullable = false)
     private Integer quantity;
 
+    @Column(length = 200)
+    private String remark;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal; 
