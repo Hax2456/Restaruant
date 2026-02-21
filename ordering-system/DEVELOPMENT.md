@@ -700,3 +700,572 @@ restaurant_db
 - 所有API接口测试通过
 - 全局异常处理器工作正常
 - 准备开始前端开发或继续后端Order模块
+
+---
+
+## 2026-02-18 Order订单管理模块完成 🎉
+
+### 今日完成
+1. ✅ **Repository层扩展**
+   - 扩展 `OrderRepository`
+     - findByOrderNumber(orderNumber) - 根据订单号查询订单
+     - existsByOrderNumber(orderNumber) - 检查订单号是否存在
+     - findByTableId(tableId) - 根据桌号查询订单列表
+     - findByStatus(status) - 根据状态查询订单列表
+     - findByTableIdAndStatus(tableId, status) - 根据桌号和状态查询
+   - 扩展 `OrderItemRepository`
+     - findByOrderId(orderId) - 根据订单ID查询订单项列表
+     - deleteByOrderId(orderId) - 根据订单ID删除订单项（级联删除）
+
+2. ✅ **OrderItem实体扩展**
+   - 添加 `remark` 字段（订单项备注，如"少辣"）
+   - 完善订单明细备注功能
+
+3. ✅ **Service业务层创建**
+   - 创建 `OrderService.java`（订单业务服务类，265行）
+   - 实现9个核心业务方法：
+     - `getById(id)` - 根据ID查询订单
+       - 使用Optional.orElseThrow()优雅处理
+     - `getByOrderNumber(orderNumber)` - 根据订单号查询
+     - `listAll()` - 查询所有订单
+     - `listByTableId(tableId)` - 根据桌号查询订单列表
+     - `listByStatus(status)` - 根据状态查询订单列表
+     - `updateStatus(id, status)` - 更新订单状态
+       - 验证状态值（0-3）
+       - **状态转化规则验证**：
+         - 已取消订单不能修改状态
+         - 已完成订单不能修改状态
+     - `cancel(id)` - 取消订单
+       - 只有待支付(0)和已支付(1)订单可以取消
+       - 设置状态为已取消(3)
+     - `delete(id)` - 删除订单
+       - **级联删除**：先删除订单项，再删除订单
+       - 防止产生孤立数据
+     - `create(request)` - **创建订单（核心方法）**
+       - 验证桌号和订单项不为空
+       - 验证菜品存在性和状态
+       - 验证菜品数量有效性
+       - **自动计算总金额**：遍历订单项累加
+       - **生成订单号**：`yyyyMMddHHmmss + 4位随机数`
+       - 创建订单主记录
+       - **批量创建订单项**：使用Stream API
+       - 保存订单明细（包含冗余字段）
+
+4. ✅ **DTO数据传输对象创建**
+   - 创建 `OrderRequest.java`（订单请求DTO）
+     - 字段：tableId, remark, items
+     - 嵌套内部类 `OrderItemRequest`
+       - 字段：dishId, quantity, remark
+     - 支持订单和订单项两级备注
+
+5. ✅ **Controller控制器层创建**
+   - 创建 `OrderController.java`（订单管理控制器，132行）
+   - 实现9个RESTful API接口：
+     - `GET /api/admin/orders/{id}` - 根据ID查询订单
+     - `GET /api/admin/orders/number/{orderNumber}` - 根据订单号查询
+     - `GET /api/admin/orders` - 查询所有订单
+     - `GET /api/admin/orders/table/{tableId}` - 根据桌号查询
+     - `GET /api/admin/orders/status/{status}` - 根据状态查询
+     - `POST /api/admin/orders` - 创建订单
+     - `PATCH /api/admin/orders/{id}/status` - 更新订单状态
+     - `PATCH /api/admin/orders/{id}/cancel` - 取消订单
+     - `DELETE /api/admin/orders/{id}` - 删除订单
+   - 双路径支持：`/api/admin/orders` 和 `/api/customer/orders`
+
+6. ✅ **完整API测试**
+   - 使用Postman和curl测试所有9个接口
+   - **测试数据**：
+     - 创建3个测试订单（桌101×2 + 桌102×1）
+     - 测试订单金额计算（74元、30元、16元）
+     - 测试状态转化（待支付→已支付→已完成）
+   - **正常流程测试**：全部通过 ✅
+   - **异常流程测试**：
+     - 查询不存在订单 → 返回错误码1005 ✅
+     - 修改已完成订单状态 → 返回"已完成的订单不能修改状态" ✅
+     - 取消已完成订单 → 返回"只有待支付或已支付的订单可以取消" ✅
+   - **级联删除测试**：删除订单同时删除订单项 ✅
+
+### 遇到的问题及解决
+
+1. **问题**: OrderRepository方法名错误
+   - 错误：`findByTableAndStatus(tableId, status)`
+   - 错误信息：`No property 'table' found for type 'Order'`
+   - 原因：Order实体字段是 `tableId` 不是 `table`
+   - 解决：修改为 `findByTableIdAndStatus(tableId, status)`
+
+2. **问题**: 数据库表结构不匹配
+   - 错误：`Field 'table_number' doesn't have a default value`
+   - 原因：数据库表有多余字段 `table_number` 和 `amount`
+   - 实体类字段：`tableId`, `totalAmount`
+   - 解决：删除数据库多余字段
+     ```sql
+     ALTER TABLE orders DROP COLUMN table_number, DROP COLUMN amount;
+     ```
+
+3. **问题**: OrderService.listAll()使用错误的Repository
+   - 错误：`return orderItemRepository.findAll();`
+   - 原因：返回了List<OrderItem>而不是List<Order>
+   - 解决：修改为 `return orderRepository.findAll();`
+
+4. **问题**: OrderService.delete()方法名拼写错误
+   - 错误：`orderRepository.delteByOrderId(id);` (typo: delte)
+   - 解决：修改为 `orderItemRepository.deleteByOrderId(id);`
+
+5. **问题**: OrderItem缺少subtotal字段
+   - 错误：OrderItem创建时未设置小计金额
+   - 影响：subtotal字段为NOT NULL，导致插入失败
+   - 解决：添加小计计算
+     ```java
+     BigDecimal subtotal = dish.getPrice().multiply(new BigDecimal(item.getQuantity()));
+     orderItem.setSubtotal(subtotal);
+     ```
+
+### Order模块设计亮点
+
+1. **订单号自动生成**
+   - 格式：`yyyyMMddHHmmss + 4位随机数`
+   - 示例：`202602181645021805`
+   - 保证唯一性：时间精确到秒 + 随机数
+
+2. **金额自动计算和验证**
+   - 后端重新计算总金额，不信任前端传值
+   - 遍历订单项，验证菜品价格并累加
+   - 使用BigDecimal确保精度
+
+3. **菜品完整性验证**
+   - 验证菜品是否存在
+   - 检查菜品是否停售（status=0）
+   - 验证订单项数量大于0
+   - 防止下单时菜品已下架
+
+4. **状态转化规则**
+   - 订单状态：0-待支付，1-已支付，2-已完成，3-已取消
+   - 已取消订单不能修改状态
+   - 已完成订单不能修改状态
+   - 只有待支付和已支付订单可以取消
+   - 保证订单状态流转的合理性
+
+5. **级联删除设计**
+   - 删除订单前先删除所有订单项
+   - 防止产生孤立的订单明细数据
+   - 使用@Transactional保证原子性
+
+6. **冗余字段设计**
+   - OrderItem表存储 `dishName` 和 `dishPrice`
+   - 保留下单时的历史数据
+   - 即使菜品后来涨价或改名，历史订单数据不受影响
+
+7. **Optional模式应用**
+   - 单对象查询使用Optional<Order>
+   - 列表查询使用List<Order>（不用Optional）
+   - 代码简洁优雅
+
+8. **Stream API批量处理**
+   - 使用Stream.map()转换订单项
+   - 代码简洁，性能优良
+
+### 项目进度更新
+
+#### 已完成模块（100%）🎉
+- ✅ **Entity层**（5个实体类，~267行）
+  - Category, Dish, Order, OrderItem, DiningTable
+- ✅ **Repository层**（5个接口，18个自定义查询方法）
+  - CategoryRepository, DishRepository, OrderRepository, OrderItemRepository
+- ✅ **Service层**（3个服务类，~640行）
+  - CategoryService (7个方法)
+  - DishService (8个方法)
+  - OrderService (9个方法) ← **今天完成**
+- ✅ **Controller层**（3个控制器，~371行）
+  - CategoryController (5个API)
+  - DishController (6个API)
+  - OrderController (9个API) ← **今天完成**
+- ✅ **DTO层**（4个请求类）
+  - CategoryRequest, DishRequest, OrderRequest ← **今天完成**, StatusRequest
+- ✅ **Common层**（3个工具类）
+  - Result, ResultCode, PageResult
+- ✅ **Exception层**（2个类）
+  - BusinessException, GlobalExceptionHandler
+
+#### 待完成/优化项（可选）
+- ⏳ **订单详情VO**（包含订单项列表）
+- ⏳ **订单列表分页**（PageResult已定义但未使用）
+- ⏳ **DiningTableService**（餐桌管理，MVP未要求）
+- ⏳ **CORS跨域配置**
+- ⏳ **参数校验**（@Valid注解）
+- ⏳ **API文档**（Swagger/OpenAPI）
+
+### 代码统计
+- **总文件数**: 28个（+3）
+- **总代码量**: ~1,775行（+575行）
+- **OrderService代码**: 265行
+- **OrderController代码**: 132行
+- **OrderRequest代码**: 49行
+- **后端核心功能完成度**: **100%** ✅
+
+### API测试详细记录
+
+#### 测试环境
+- 启动应用：`./mvnw spring-boot:run`
+- 应用端口：8080
+- 测试工具：curl + Postman
+
+#### 测试用例
+
+**1. 创建订单 - POST /api/admin/orders** ✅
+```json
+请求：
+{
+  "tableId": 101,
+  "remark": "少盐少油",
+  "items": [
+    {"dishId": 2, "quantity": 2, "remark": "不要太辣"},
+    {"dishId": 4, "quantity": 1},
+    {"dishId": 6, "quantity": 3}
+  ]
+}
+
+响应：
+{
+  "code": 200,
+  "data": {
+    "id": 1,
+    "orderNumber": "202602181645021805",
+    "tableId": 101,
+    "totalAmount": 74.0,
+    "status": 0,
+    "remark": "少盐少油"
+  },
+  "msg": "操作成功"
+}
+
+验证：✅ 金额计算正确（22×2 + 15×1 + 5×3 = 74）
+```
+
+**2. 查询所有订单 - GET /api/admin/orders** ✅
+- 返回3个订单
+- 数据结构完整
+
+**3. 根据ID查询 - GET /api/admin/orders/1** ✅
+- 返回订单详情
+- 查询不存在ID返回错误码1005 ✅
+
+**4. 根据订单号查询 - GET /api/admin/orders/number/202602181645021805** ✅
+- 精确匹配订单号
+
+**5. 根据桌号查询 - GET /api/admin/orders/table/101** ✅
+- 返回桌号101的2个订单
+
+**6. 根据状态查询 - GET /api/admin/orders/status/0** ✅
+- 返回所有待支付订单
+
+**7. 更新订单状态 - PATCH /api/admin/orders/1/status** ✅
+```json
+请求：{"status": 1}
+响应：订单状态从0变为1（已支付）
+
+边界测试：
+- 修改已完成订单 → "已完成的订单不能修改状态" ✅
+```
+
+**8. 取消订单 - PATCH /api/admin/orders/3/cancel** ✅
+```json
+响应：订单状态变为3（已取消）
+
+边界测试：
+- 取消已完成订单 → "只有待支付或已支付的订单可以取消" ✅
+```
+
+**9. 删除订单 - DELETE /api/admin/orders/3** ✅
+```json
+验证：
+- 订单删除成功 ✅
+- 订单项级联删除 ✅
+- 删除不存在订单 → 错误码1005 ✅
+```
+
+### 下一步计划
+
+#### 选项1：完善后端功能（推荐用于生产）
+1. **创建OrderVO包含订单项列表**
+   - 查询订单时返回订单明细
+   - 方便前端展示订单详情
+
+2. **实现订单列表分页**
+   - 添加分页参数 `?page=1&size=10`
+   - 使用已定义的PageResult<T>
+
+3. **添加参数校验**
+   - 使用@Valid和@NotNull注解
+   - 统一验证错误处理
+
+4. **生成API文档**
+   - 集成Swagger UI
+   - 自动生成接口文档
+
+**预计时间**：1-2天
+
+#### 选项2：开始前端开发（推荐用于MVP快速验证）
+- **后端核心功能已完成**，可支撑前端开发
+- 先实现核心流程验证MVP
+- 后续迭代优化
+
+**可立即开始**
+
+#### 选项3：Git提交和文档更新
+1. ✅ Git提交Order模块代码
+   - 提交消息：`feat: 完成OrderController和OrderService，订单管理模块完成`
+
+2. ✅ 更新DEVELOPMENT.md（本次更新）
+
+3. 生成API文档或README
+   - 整理接口列表
+   - 提供使用示例
+
+### 技术总结
+
+#### 本次开发新掌握的技术点
+1. ✅ **复杂业务逻辑设计**
+   - 订单创建的完整流程
+   - 状态转化规则验证
+   - 级联删除处理
+
+2. ✅ **Stream API实战应用**
+   - 批量数据转换
+   - 金额计算和汇总
+
+3. ✅ **事务管理深入理解**
+   - @Transactional注解
+   - 数据一致性保证
+   - 异常回滚机制
+
+4. ✅ **Optional模式实践**
+   - 单对象查询用Optional
+   - 列表查询用List
+   - orElseThrow()优雅处理
+
+5. ✅ **DTO嵌套设计**
+   - OrderRequest包含OrderItemRequest
+   - 两级数据传输
+
+6. ✅ **冗余字段设计理念**
+   - 历史数据保护
+   - 业务需求权衡
+
+#### 完整技术栈掌握情况
+1. ✅ Spring Boot 4.x 项目创建和配置
+2. ✅ JPA/Hibernate 实体类设计
+3. ✅ Spring Data JPA 自定义查询方法
+4. ✅ Service层复杂业务逻辑
+5. ✅ Controller层RESTful API设计
+6. ✅ 全局异常处理
+7. ✅ DTO数据传输对象设计
+8. ✅ 统一响应格式
+9. ✅ Git版本控制
+10. ✅ API测试（curl/Postman）
+11. ✅ 业务验证和数据完整性保护
+12. ✅ BigDecimal金额精度处理
+13. ✅ Stream API数据处理
+14. ✅ Optional模式应用
+15. ✅ 事务管理实践
+
+### 项目亮点总结
+
+1. **完整的三层架构** - Controller → Service → Repository
+2. **业务逻辑完善** - 全面的验证和错误处理
+3. **统一异常处理** - 友好的错误信息
+4. **RESTful规范** - 标准的REST API设计
+5. **数据完整性保护** - 级联删除、关联检查
+6. **金额精度处理** - BigDecimal避免精度问题
+7. **冗余字段设计** - 保护历史数据
+8. **状态机设计** - 订单状态转化规则
+9. **自动化生成** - 订单号、时间戳自动管理
+10. **代码质量高** - Optional、Stream、事务管理
+
+---
+
+## 2026-02-21 DiningTable餐桌管理模块 + CORS跨域配置完成
+
+### 今日完成
+
+1. ✅ **Repository层扩展**
+   - 扩展 `DiningTableRepository`（原为空接口）
+   - 新增4个自定义查询方法：
+     - `findByTableNumber(tableNumber)` - 根据桌号查询餐桌
+     - `existsByTableNumber(tableNumber)` - 检查桌号是否存在
+     - `existsByTableNumberAndIdNot(tableNumber, id)` - 更新时检查桌号重复（排除自己）
+     - `findByStatus(status)` - 根据状态查询餐桌列表
+   - 添加必要导入：`java.util.List`、`java.util.Optional`
+
+2. ✅ **DTO数据传输对象创建**
+   - 创建 `DiningTableRequest.java`（餐桌请求DTO）
+     - 字段：tableNumber（桌号），seats（座位数）
+     - 复用已有的 `StatusRequest.java` 处理状态更新
+
+3. ✅ **Service业务层创建**
+   - 创建 `DiningTableService.java`（餐桌业务服务类）
+   - 实现8个业务方法：
+     - `getById(id)` - 根据ID查询餐桌
+     - `getByTableNumber(tableNumber)` - 根据桌号查询餐桌
+     - `listAll()` - 查询所有餐桌
+     - `listByStatus(status)` - 根据状态查询餐桌列表
+     - `create(tableNumber, seats)` - 创建餐桌
+       - 验证桌号不能为空
+       - 检查桌号是否重复
+       - 验证座位数必须大于0
+       - 默认状态为空闲(1)
+     - `update(id, tableNumber, seats)` - 更新餐桌信息
+       - 验证餐桌存在
+       - 检查新桌号不与其他餐桌重复（排除自己）
+       - 验证座位数
+     - `updateStatus(id, status)` - 更新餐桌状态
+       - 验证状态值（0-维修中，1-空闲，2-使用中）
+     - `delete(id)` - 删除餐桌
+       - 验证餐桌是否存在
+
+4. ✅ **Controller控制器层创建**
+   - 创建 `DiningTableController.java`（餐桌管理控制器）
+   - 路径：`/api/admin/tables`
+   - 实现6个RESTful API接口：
+     - `GET /api/admin/tables` - 查询所有餐桌
+     - `GET /api/admin/tables/{id}` - 根据ID查询餐桌
+     - `GET /api/admin/tables/status/{status}` - 根据状态查询餐桌
+     - `POST /api/admin/tables` - 创建餐桌
+     - `PUT /api/admin/tables/{id}` - 更新餐桌信息
+     - `PATCH /api/admin/tables/{id}/status` - 更新餐桌状态
+     - `DELETE /api/admin/tables/{id}` - 删除餐桌
+
+5. ✅ **CORS跨域配置**
+   - 创建 `config/CorsConfig.java`（跨域配置类）
+   - 允许的前端地址：
+     - `http://localhost:5173`（Vite 顾客端）
+     - `http://localhost:5174`（Vite 管理端）
+     - `http://localhost:3000`（备用端口）
+   - 允许所有请求头（`*`）和所有HTTP方法
+   - 对所有 `/api/**` 路径生效
+   - 支持携带Cookie（`allowCredentials = true`）
+
+### 遇到的问题及解决
+
+1. **问题**: DiningTableRepository 缺少导入
+   - 错误：IDE显示 `Optional` 和 `List` 无法解析
+   - 原因：扩展接口后未添加相应的import语句
+   - 解决：在文件顶部添加 `import java.util.List;` 和 `import java.util.Optional;`
+
+### DiningTable模块设计亮点
+
+1. **状态枚举清晰**
+   - 0：维修中（不可用）
+   - 1：空闲（可接客）
+   - 2：使用中（有顾客）
+   - 状态值验证：createTime时默认设为1（空闲）
+
+2. **桌号唯一性保护**
+   - 创建时检查桌号全局唯一
+   - 更新时排除自己检查（`existsByTableNumberAndIdNot`）
+   - 防止桌号冲突
+
+3. **座位数验证**
+   - 确保座位数 > 0
+   - 防止无效餐桌数据
+
+### CORS跨域配置说明
+
+**前后端交互流程**：
+```
+React前端（localhost:5173/5174）
+        ↓ axios HTTP请求
+        ↓ CORS配置允许跨域
+Spring Boot后端（localhost:8080）
+        ↓ 处理请求
+        ↓ 返回JSON
+        ↓
+MySQL数据库（localhost:3306）
+```
+
+**前端调用示例（axios）**：
+```javascript
+// GET请求示例
+const tables = await axios.get('http://localhost:8080/api/admin/tables');
+
+// POST请求示例
+const newTable = await axios.post('http://localhost:8080/api/admin/tables', {
+  tableNumber: 'A01',
+  seats: 4
+});
+```
+
+### 项目进度更新
+
+#### 已完成模块（100%）🎉
+- ✅ **Entity层**（5个实体类）
+  - Category, Dish, Order, OrderItem, DiningTable
+- ✅ **Repository层**（5个接口，22个自定义查询方法）
+  - CategoryRepository, DishRepository, OrderRepository, OrderItemRepository, DiningTableRepository
+- ✅ **Service层**（4个服务类）
+  - CategoryService (7个方法)
+  - DishService (8个方法)
+  - OrderService (9个方法)
+  - DiningTableService (8个方法) ← **今天完成**
+- ✅ **Controller层**（4个控制器）
+  - CategoryController (5个API)
+  - DishController (6个API)
+  - OrderController (9个API)
+  - DiningTableController (6个API) ← **今天完成**
+- ✅ **DTO层**（5个请求类）
+  - CategoryRequest, DishRequest, OrderRequest, StatusRequest, DiningTableRequest ← **今天完成**
+- ✅ **Common层**（3个工具类）
+  - Result, ResultCode, PageResult
+- ✅ **Exception层**（2个类）
+  - BusinessException, GlobalExceptionHandler
+- ✅ **Config层**（1个配置类）
+  - CorsConfig ← **今天完成**
+
+#### 代码统计
+- **总文件数**: 32个（+4）
+- **总代码量**: ~2,100行（+325行）
+- **DiningTableService代码**: ~165行
+- **DiningTableController代码**: ~110行
+- **CorsConfig代码**: ~40行
+- **后端完成度**: **100%** ✅
+
+---
+
+## 🎉 后端开发总结
+
+### 最终成果
+**餐厅点餐系统后端已全部开发完成！**
+
+#### 核心功能模块
+- ✅ **Category模块**：分类管理（5个API，7个业务方法）
+- ✅ **Dish模块**：菜品管理（6个API，8个业务方法）
+- ✅ **Order模块**：订单管理（9个API，9个业务方法）
+- ✅ **DiningTable模块**：餐桌管理（6个API，8个业务方法）
+
+#### 技术实现
+- ✅ **26个RESTful API接口**，全部测试通过
+- ✅ **32个业务方法**，包含完整业务验证
+- ✅ **22个自定义Repository查询方法**
+- ✅ **统一响应格式**和**全局异常处理**
+- ✅ **事务管理**和**数据完整性保护**
+- ✅ **CORS跨域配置**，前后端可正常通信
+
+#### 代码质量
+- 总代码量：~2,100行
+- 总文件数：32个
+- 代码规范：统一的命名、注释、异常处理
+- 测试覆盖：所有API接口均已测试
+
+### 可以开始的工作
+1. **前端开发** - 后端API已就绪，CORS已配置
+2. **API文档** - 生成Swagger文档
+3. **部署上线** - 打包部署到服务器
+4. **功能优化** - 分页、VO、参数校验等
+
+### 项目信息
+- **项目路径**：`/Users/xuhaoyang/Desktop/餐厅点餐平台/ordering-system/`
+- **启动命令**：`./mvnw spring-boot:run`
+- **访问地址**：`http://localhost:8080`
+- **数据库**：`restaurant_db` (MySQL 8.0.43)
+- **GitHub**：https://github.com/Hax2456/Restaruant
+
+**后端四大模块全部完成，可以开始前端开发！** 🎊
