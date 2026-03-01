@@ -1,0 +1,48 @@
+services:
+  # MySQL 数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: restaurant-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 5253
+      MYSQL_DATABASE: restaurant_db
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p5253"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # Spring Boot 应用服务
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: restaurant-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/restaurant_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 5253
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - restaurant-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+
+networks:
+  restaurant-network:
+    driver: bridge
+
