@@ -20,7 +20,8 @@ public class CorsConfig {
         // 允许前端地址（开发环境）
         config.addAllowedOrigin("http://localhost:5173"); // Vite顾客端
         config.addAllowedOrigin("http://localhost:5174"); // Vite管理端
-        config.addAllowedOrigin("http://localhost:3000"); // 备用端口
+        config.addAllowedOrigin("http://localhost:3000"); // 顾客端
+        config.addAllowedOrigin("http://localhost:3001"); // 管理端
 
         // 允许所有请求头
         config.addAllowedHeader("*");

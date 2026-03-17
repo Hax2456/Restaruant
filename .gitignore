@@ -1,3 +1,10 @@
+# Node
+node_modules/
+frontend/admin/node_modules/
+frontend/customer/node_modules/
+frontend/admin/dist/
+frontend/customer/dist/
+
 # Maven
 ordering-system/target/
 !ordering-system/.mvn/wrapper/maven-wrapper.jar
