@@ -17,11 +17,8 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // 允许前端地址（开发环境）
-        config.addAllowedOrigin("http://localhost:5173"); // Vite顾客端
-        config.addAllowedOrigin("http://localhost:5174"); // Vite管理端
-        config.addAllowedOrigin("http://localhost:3000"); // 顾客端
-        config.addAllowedOrigin("http://localhost:3001"); // 管理端
+        // 允许所有来源（包括Railway部署的前端域名）
+        config.addAllowedOriginPattern("*");
 
         // 允许所有请求头
         config.addAllowedHeader("*");
