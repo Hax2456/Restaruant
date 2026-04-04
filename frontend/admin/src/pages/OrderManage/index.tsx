@@ -3,7 +3,8 @@ import {
   Table, Tag, Button, Space, Tabs, Popconfirm, message,
   Badge, Tooltip, Card, Statistic, Row, Col
 } from 'antd';
-import type { ColumnsType, ExpandableConfig } from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
+import type { ExpandableConfig } from 'rc-table/lib/interface';
 import { getOrders, getOrdersByStatus, updateOrderStatus, cancelOrder, deleteOrder } from '../../api/order';
 import type { Order, OrderItem } from '../../types';
 

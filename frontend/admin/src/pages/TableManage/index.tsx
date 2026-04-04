@@ -19,7 +19,7 @@ const TableManage: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<DiningTable | null>(null);
   const [saving, setSaving] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<number | 'all'>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm();
 
@@ -94,7 +94,7 @@ const TableManage: React.FC = () => {
 
   const filteredTables = filterStatus === 'all'
     ? tables
-    : tables.filter((t) => t.status === filterStatus);
+    : tables.filter((t) => t.status === Number(filterStatus));
 
   const stats = {
     total: tables.length,
@@ -105,9 +105,9 @@ const TableManage: React.FC = () => {
 
   const segmentedOptions = [
     { label: `全部 (${stats.total})`, value: 'all' },
-    { label: `空闲 (${stats.idle})`, value: 1 },
-    { label: `使用中 (${stats.occupied})`, value: 2 },
-    { label: `维修中 (${stats.maintenance})`, value: 0 },
+    { label: `空闲 (${stats.idle})`, value: '1' },
+    { label: `使用中 (${stats.occupied})`, value: '2' },
+    { label: `维修中 (${stats.maintenance})`, value: '0' },
   ];
 
   return (
@@ -151,7 +151,7 @@ const TableManage: React.FC = () => {
               <Segmented
                 options={segmentedOptions}
                 value={filterStatus}
-                onChange={(v) => setFilterStatus(v as number | 'all')}
+                onChange={(v) => setFilterStatus(v as string)}
                 size="small"
               />
               <Button
